@@ -1,0 +1,301 @@
+{% extends "base.html" %}
+
+{% block title %}Passkey設定 - PyAuth{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h3><i class="fas fa-fingerprint"></i> Passkey設定</h3>
+                    <p class="text-muted">パスワードレス認証でより安全で便利なログインを実現します</p>
+                </div>
+
+                <!-- セットアップステップ表示 -->
+                <div class="setup-steps mb-4">
+                    <div class="setup-step completed">
+                        <div class="setup-step-icon">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <small>パスワード変更</small>
+                    </div>
+                    <div class="setup-step completed">
+                        <div class="setup-step-icon">
+                            <i class="fas fa-check"></i>
+                        </div>
+                        <small>2FA設定</small>
+                    </div>
+                    <div class="setup-step active">
+                        <div class="setup-step-icon">
+                            <i class="fas fa-fingerprint"></i>
+                        </div>
+                        <small>Passkey登録</small>
+                    </div>
+                </div>
+
+                <div class="row">
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-key"></i> Passkeyについて</h5>
+                        <p class="text-muted">Passkeyは最新の認証技術で、以下の利点があります：</p>
+                        
+                        <div class="list-group mb-4">
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1"><i class="fas fa-shield-alt text-success"></i> 高いセキュリティ</h6>
+                                </div>
+                                <p class="mb-1">フィッシング攻撃に対して完全に安全</p>
+                            </div>
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1"><i class="fas fa-bolt text-warning"></i> 高速ログイン</h6>
+                                </div>
+                                <p class="mb-1">生体認証で瞬時にログイン</p>
+                            </div>
+                            <div class="list-group-item">
+                                <div class="d-flex w-100 justify-content-between">
+                                    <h6 class="mb-1"><i class="fas fa-users text-primary"></i> 標準技術</h6>
+                                </div>
+                                <p class="mb-1">FIDO2/WebAuthn国際標準</p>
+                            </div>
+                        </div>
+
+                        <!-- 対応デバイス -->
+                        <h6>対応デバイス・方法</h6>
+                        <div class="row text-center mb-3">
+                            <div class="col-6 mb-2">
+                                <div class="border rounded p-2">
+                                    <i class="fas fa-fingerprint fa-2x text-primary"></i>
+                                    <br><small>指紋認証</small>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="border rounded p-2">
+                                    <i class="fas fa-eye fa-2x text-success"></i>
+                                    <br><small>顔認証</small>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="border rounded p-2">
+                                    <i class="fas fa-usb fa-2x text-warning"></i>
+                                    <br><small>セキュリティキー</small>
+                                </div>
+                            </div>
+                            <div class="col-6 mb-2">
+                                <div class="border rounded p-2">
+                                    <i class="fas fa-mobile-alt fa-2x text-info"></i>
+                                    <br><small>スマートフォン</small>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div class="col-md-6">
+                        <h5><i class="fas fa-plus-circle"></i> Passkeyを登録</h5>
+                        <p class="text-muted">デバイスの生体認証やセキュリティキーを登録します</p>
+
+                        <div class="d-grid gap-3">
+                            <button type="button" class="btn btn-primary btn-lg passkey-button" onclick="registerPasskey()">
+                                <i class="fas fa-fingerprint"></i> Passkeyを登録
+                            </button>
+                            
+                            <div class="text-center">
+                                <small class="text-muted">または</small>
+                            </div>
+                            
+                            <button type="button" class="btn btn-outline-secondary" onclick="skipPasskey()">
+                                <i class="fas fa-arrow-right"></i> スキップして完了
+                            </button>
+                        </div>
+
+                        <!-- 登録手順 -->
+                        <div class="alert alert-info mt-4">
+                            <h6><i class="fas fa-info-circle"></i> 登録手順</h6>
+                            <ol class="mb-0 small">
+                                <li>「Passkeyを登録」をクリック</li>
+                                <li>ブラウザの認証ダイアログが表示される</li>
+                                <li>指紋、顔、PIN、セキュリティキーのいずれかで認証</li>
+                                <li>登録完了！</li>
+                            </ol>
+                        </div>
+
+                        <!-- 推奨事項 -->
+                        <div class="alert alert-success">
+                            <h6><i class="fas fa-lightbulb"></i> 推奨</h6>
+                            <ul class="mb-0 small">
+                                <li>複数のPasskeyを登録（バックアップ）</li>
+                                <li>異なるデバイスでも登録</li>
+                                <li>セキュリティキーの併用</li>
+                            </ul>
+                        </div>
+
+                        <!-- 注意事項 -->
+                        <div class="alert alert-warning">
+                            <h6><i class="fas fa-exclamation-triangle"></i> 注意</h6>
+                            <ul class="mb-0 small">
+                                <li>Passkeyはデバイス固有です</li>
+                                <li>デバイス変更時は再登録が必要</li>
+                                <li>パスワード + 2FAも残しておくことを推奨</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 登録成功モーダル -->
+<div class="modal fade" id="successModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="fas fa-check-circle text-success"></i> 登録完了</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>Passkeyの登録が完了しました！</p>
+                <p>次回からパスワードレスでログインできます。</p>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-primary" onclick="completeSetup()">セットアップを完了</button>
+                <button type="button" class="btn btn-outline-secondary" onclick="registerAnother()">さらに追加</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+let passkeyRegistered = false;
+
+async function registerPasskey() {
+    const button = event.target;
+    const originalText = button.innerHTML;
+    button.innerHTML = '<i class="fas fa-spinner fa-spin"></i> 登録中...';
+    button.disabled = true;
+
+    try {
+        // 登録開始
+        const response = await fetch('/api/webauthn/register/begin', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        if (!response.ok) {
+            throw new Error('登録開始に失敗しました');
+        }
+        
+        const responseData = await response.json();
+        
+        // public_keyプロパティからオプションを取得
+        const options = responseData.public_key || responseData;
+        
+        // Base64デコード
+        if (options.challenge) {
+            options.challenge = base64urlToArrayBuffer(options.challenge);
+        }
+        if (options.user && options.user.id) {
+            options.user.id = base64urlToArrayBuffer(options.user.id);
+        }
+        if (options.excludeCredentials) {
+            options.excludeCredentials.forEach(cred => {
+                if (cred.id) {
+                    cred.id = base64urlToArrayBuffer(cred.id);
+                }
+            });
+        }
+        
+        // WebAuthn登録
+        const credential = await navigator.credentials.create({ publicKey: options });
+        
+        // レスポンス準備
+        const credentialResponse = {
+            id: credential.id,
+            rawId: arrayBufferToBase64url(credential.rawId),
+            response: {
+                attestationObject: arrayBufferToBase64url(credential.response.attestationObject),
+                clientDataJSON: arrayBufferToBase64url(credential.response.clientDataJSON)
+            },
+            type: credential.type
+        };
+        
+        // 登録完了
+        const completeResponse = await fetch('/api/webauthn/register/complete', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify(credentialResponse)
+        });
+        
+        const result = await completeResponse.json();
+        
+        if (result.success) {
+            passkeyRegistered = true;
+            const modal = new bootstrap.Modal(document.getElementById('successModal'));
+            modal.show();
+        } else {
+            alert('登録に失敗しました: ' + result.error);
+        }
+        
+    } catch (error) {
+        console.error('Passkey登録エラー:', error);
+        const errorMessage = handleWebAuthnError(error);
+        alert('Passkey登録に失敗しました: ' + errorMessage);
+    } finally {
+        button.innerHTML = originalText;
+        button.disabled = false;
+    }
+}
+
+function skipPasskey() {
+    if (confirm('Passkeyの登録をスキップしますか？\n\n※ 後からダッシュボードで追加できます')) {
+        completeSetup();
+    }
+}
+
+function registerAnother() {
+    const modal = bootstrap.Modal.getInstance(document.getElementById('successModal'));
+    modal.hide();
+    // 追加登録ボタンを再度有効化
+    document.querySelector('.passkey-button').disabled = false;
+}
+
+async function completeSetup() {
+    try {
+        const response = await fetch('/complete-setup', {
+            method: 'POST',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        if (response.ok) {
+            window.location.href = '/dashboard';
+        } else {
+            alert('セットアップ完了に失敗しました');
+        }
+    } catch (error) {
+        console.error('セットアップ完了エラー:', error);
+        alert('セットアップ完了に失敗しました');
+    }
+}
+
+// WebAuthn サポートチェック
+document.addEventListener('DOMContentLoaded', function() {
+    if (!isWebAuthnSupported()) {
+        document.querySelector('.passkey-button').disabled = true;
+        document.querySelector('.passkey-button').innerHTML = '<i class="fas fa-exclamation-triangle"></i> ブラウザ未対応';
+        
+        // スキップボタンのテキストを変更
+        document.querySelector('button[onclick="skipPasskey()"]').innerHTML = '<i class="fas fa-arrow-right"></i> 続行（Passkey未対応）';
+    }
+});
+</script>
+{% endblock %}

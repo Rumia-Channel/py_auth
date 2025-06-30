@@ -1,0 +1,229 @@
+{% extends "base.html" %}
+
+{% block title %}ダッシュボード - PyAuth{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="fas fa-tachometer-alt"></i> ダッシュボード</h2>
+        <p class="text-muted">こんにちは、{{ user.username }}さん</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-shield-alt"></i> セキュリティ設定</h5>
+            </div>
+            <div class="card-body">
+                <div class="mb-3">
+                    <strong>2要素認証 (2FA):</strong>
+                    {% if user.is_totp_enabled %}
+                        <span class="badge bg-success">有効</span>
+                        <button class="btn btn-sm btn-outline-danger ms-2" onclick="disable2FA()">無効化</button>
+                    {% else %}
+                        <span class="badge bg-warning">無効</span>
+                        <a href="{{ url_for('auth.setup_2fa') }}" class="btn btn-sm btn-outline-primary ms-2">有効化</a>
+                    {% endif %}
+                </div>
+                
+                <div class="mb-3">
+                    <strong>Passkey:</strong>
+                    <span class="badge bg-info" id="passkey-count">読み込み中...</span>
+                    <button class="btn btn-sm btn-outline-primary ms-2" onclick="registerPasskey()">追加</button>
+                </div>
+                
+                <div>
+                    <a href="{{ url_for('auth.change_password') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-key"></i> パスワード変更
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-6">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-key"></i> 登録済みPasskey</h5>
+            </div>
+            <div class="card-body">
+                <div id="passkey-list">
+                    <div class="text-center">
+                        <div class="spinner-border" role="status">
+                            <span class="visually-hidden">読み込み中...</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{% if user.is_admin %}
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-primary">
+            <div class="card-header bg-primary text-white">
+                <h5><i class="fas fa-cog"></i> 管理者機能</h5>
+            </div>
+            <div class="card-body">
+                <p>管理者としてログインしています。</p>
+                <a href="{{ url_for('admin.dashboard') }}" class="btn btn-primary">
+                    <i class="fas fa-tools"></i> 管理画面へ
+                </a>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- 2FA無効化モーダル -->
+<div class="modal fade" id="disable2faModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">2要素認証を無効化</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body">
+                <p>2要素認証を無効化するには、現在のパスワードを入力してください。</p>
+                <div class="mb-3">
+                    <label for="disablePassword" class="form-label">パスワード</label>
+                    <input type="password" class="form-control" id="disablePassword" required>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">キャンセル</button>
+                <button type="button" class="btn btn-danger" onclick="confirmDisable2FA()">無効化</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ページ読み込み時にPasskey一覧を取得
+document.addEventListener('DOMContentLoaded', function() {
+    loadPasskeys();
+});
+
+async function loadPasskeys() {
+    try {
+        const response = await fetch('/api/passkeys');
+        const data = await response.json();
+        
+        const passkeyList = document.getElementById('passkey-list');
+        const passkeyCount = document.getElementById('passkey-count');
+        
+        passkeyCount.textContent = data.passkeys.length + '個';
+        
+        if (data.passkeys.length === 0) {
+            passkeyList.innerHTML = '<p class="text-muted">登録されたPasskeyはありません</p>';
+        } else {
+            let html = '';
+            data.passkeys.forEach(passkey => {
+                html += `
+                    <div class="d-flex justify-content-between align-items-center border-bottom py-2">
+                        <div>
+                            <strong>${passkey.name}</strong><br>
+                            <small class="text-muted">作成: ${new Date(passkey.created_at).toLocaleDateString()}</small>
+                        </div>
+                        <button class="btn btn-sm btn-outline-danger" onclick="deletePasskey(${passkey.id})">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </div>
+                `;
+            });
+            passkeyList.innerHTML = html;
+        }
+    } catch (error) {
+        console.error('Passkey取得エラー:', error);
+        document.getElementById('passkey-list').innerHTML = '<p class="text-danger">読み込みに失敗しました</p>';
+    }
+}
+
+async function registerPasskey() {
+    try {
+        const result = await performPasskeyRegistration('{{ csrf_token() }}');
+        
+        if (result.success) {
+            alert('Passkeyを登録しました');
+            loadPasskeys();
+        } else {
+            alert('登録に失敗しました: ' + result.error);
+        }
+        
+    } catch (error) {
+        const errorMessage = handleWebAuthnError(error);
+        alert(errorMessage);
+    }
+}
+
+async function deletePasskey(passkeyId) {
+    if (!confirm('このPasskeyを削除しますか？')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch(`/api/passkeys/${passkeyId}`, {
+            method: 'DELETE',
+            headers: {
+                'X-CSRFToken': '{{ csrf_token() }}'
+            }
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Passkeyを削除しました');
+            loadPasskeys();
+        } else {
+            alert('削除に失敗しました: ' + result.error);
+        }
+    } catch (error) {
+        console.error('Passkey削除エラー:', error);
+        alert('削除に失敗しました');
+    }
+}
+
+function disable2FA() {
+    const modal = new bootstrap.Modal(document.getElementById('disable2faModal'));
+    modal.show();
+}
+
+async function confirmDisable2FA() {
+    const password = document.getElementById('disablePassword').value;
+    
+    if (!password) {
+        alert('パスワードを入力してください');
+        return;
+    }
+    
+    try {
+        const response = await fetch('/api/user/disable-2fa', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': '{{ csrf_token() }}'
+            },
+            body: JSON.stringify({ password: password })
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('2要素認証を無効化しました');
+            location.reload();
+        } else {
+            alert('無効化に失敗しました: ' + result.error);
+        }
+    } catch (error) {
+        console.error('2FA無効化エラー:', error);
+        alert('無効化に失敗しました');
+    }
+}
+</script>
+{% endblock %}

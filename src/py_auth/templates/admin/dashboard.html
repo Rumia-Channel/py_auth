@@ -1,0 +1,217 @@
+{% extends "base.html" %}
+
+{% block title %}管理者ダッシュボード - PyAuth{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-12">
+        <h2><i class="fas fa-tachometer-alt"></i> 管理者ダッシュボード</h2>
+        <p class="text-muted">システム全体の管理と監視</p>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-users fa-2x text-primary mb-2"></i>
+                <h4>{{ user_count }}</h4>
+                <p class="text-muted">総ユーザー数</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-user-shield fa-2x text-success mb-2"></i>
+                <h4>{{ admin_count }}</h4>
+                <p class="text-muted">管理者数</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-crown fa-2x text-danger mb-2"></i>
+                <h4>{{ users|selectattr('is_super_admin')|list|length }}</h4>
+                <p class="text-muted">スーパー管理者数</p>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-3">
+        <div class="card text-center">
+            <div class="card-body">
+                <i class="fas fa-shield-alt fa-2x text-warning mb-2"></i>
+                <h4>{{ users|selectattr('is_totp_enabled')|list|length }}</h4>
+                <p class="text-muted">2FA有効ユーザー</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="row mt-4">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-list"></i> 最近のユーザー</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table table-sm">
+                        <thead>
+                            <tr>
+                                <th>ユーザー名</th>
+                                <th>権限</th>
+                                <th>状態</th>
+                                <th>作成日</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for user in users[:5] %}
+                            <tr>
+                                <td>
+                                    <strong>{{ user.username }}</strong>
+                                </td>
+                                <td>
+                                    {% if user.is_super_admin %}
+                                        <span class="badge bg-danger">
+                                            <i class="fas fa-crown"></i> スーパー管理者
+                                        </span>
+                                    {% elif user.is_admin %}
+                                        <span class="badge bg-primary">
+                                            <i class="fas fa-user-shield"></i> 管理者
+                                        </span>
+                                    {% else %}
+                                        <span class="badge bg-secondary">
+                                            <i class="fas fa-user"></i> 一般
+                                        </span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    {% if user.is_first_login %}
+                                        <span class="badge bg-warning">初回ログイン</span>
+                                    {% else %}
+                                        <span class="badge bg-success">設定完了</span>
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    <small class="text-muted">
+                                        {{ user.created_at.strftime('%Y-%m-%d') if user.created_at else '-' }}
+                                    </small>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-primary">
+                        全ユーザーを表示
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div class="col-md-4">
+        <div class="card">
+            <div class="card-header">
+                <h5><i class="fas fa-tools"></i> 管理操作</h5>
+            </div>
+            <div class="card-body">
+                <div class="d-grid gap-2">
+                    <a href="{{ url_for('admin.users') }}" class="btn btn-outline-primary">
+                        <i class="fas fa-users"></i> ユーザー管理
+                    </a>
+                    <a href="{{ url_for('admin.create_user') }}" class="btn btn-outline-success">
+                        <i class="fas fa-plus"></i> 新規ユーザー作成
+                    </a>
+                    <a href="{{ url_for('auth.dashboard') }}" class="btn btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> メインダッシュボードに戻る
+                    </a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card mt-3">
+            <div class="card-header">
+                <h5><i class="fas fa-info-circle"></i> システム情報</h5>
+            </div>
+            <div class="card-body">
+                <small class="text-muted">
+                    <div class="mb-2">
+                        <strong>認証方式:</strong> パスワード + 2FA + Passkey
+                    </div>
+                    <div class="mb-2">
+                        <strong>セキュリティ:</strong> WebAuthn FIDO2
+                    </div>
+                    <div class="mb-2">
+                        <strong>2要素認証:</strong> TOTP (RFC 6238)
+                    </div>
+                    <div>
+                        <strong>権限管理:</strong> ロールベース
+                    </div>
+                </small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- 権限説明モーダル -->
+<div class="row mt-4">
+    <div class="col-12">
+        <div class="card border-info">
+            <div class="card-header bg-info text-white">
+                <h5><i class="fas fa-info-circle"></i> 権限レベルについて</h5>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <span class="badge bg-danger fs-6">
+                                <i class="fas fa-crown"></i> スーパー管理者
+                            </span>
+                            <ul class="list-unstyled mt-2 small">
+                                <li>• 初期登録ユーザー</li>
+                                <li>• 全ての管理機能</li>
+                                <li>• 他ユーザーの権限変更</li>
+                                <li>• 権限剥奪不可</li>
+                                <li>• 削除不可</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <span class="badge bg-primary fs-6">
+                                <i class="fas fa-user-shield"></i> 管理者
+                            </span>
+                            <ul class="list-unstyled mt-2 small">
+                                <li>• 管理画面アクセス</li>
+                                <li>• ユーザー作成</li>
+                                <li>• パスワードリセット</li>
+                                <li>• 権限変更不可</li>
+                            </ul>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="text-center">
+                            <span class="badge bg-secondary fs-6">
+                                <i class="fas fa-user"></i> 一般ユーザー
+                            </span>
+                            <ul class="list-unstyled mt-2 small">
+                                <li>• 個人認証機能</li>
+                                <li>• 2FA設定</li>
+                                <li>• Passkey管理</li>
+                                <li>• プロフィール変更</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

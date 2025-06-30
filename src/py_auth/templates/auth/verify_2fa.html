@@ -1,0 +1,227 @@
+{% extends "base.html" %}
+
+{% block title %}2要素認証 - PyAuth{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-6 col-lg-4">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h3><i class="fas fa-shield-alt"></i> 2要素認証</h3>
+                    <p class="text-muted">認証アプリのコードを入力してください</p>
+                </div>
+
+                <form method="POST">
+                    {{ form.hidden_tag() }}
+                    
+                    <div class="mb-3">
+                        {{ form.token.label(class="form-label") }}
+                        {{ form.token(class="form-control form-control-lg text-center font-monospace", style="letter-spacing: 0.3em;", maxlength="6", placeholder="000000", autofocus=true) }}
+                        {% if form.token.errors %}
+                            <div class="text-danger">
+                                {% for error in form.token.errors %}
+                                    <small>{{ error }}</small>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                        <div class="form-text text-center">
+                            <small><i class="fas fa-mobile-alt"></i> 認証アプリに表示された6桁のコードを入力</small>
+                        </div>
+                    </div>
+
+                    <div class="d-grid">
+                        {{ form.submit(class="btn btn-primary btn-lg") }}
+                    </div>
+                </form>
+
+                <!-- カウントダウンタイマー -->
+                <div class="text-center mt-3">
+                    <small class="text-muted">
+                        <i class="fas fa-clock"></i> 
+                        新しいコードまで: <span id="countdown">--</span>秒
+                    </small>
+                    <div class="progress mt-1" style="height: 4px;">
+                        <div class="progress-bar" id="countdown-bar" role="progressbar" style="width: 0%"></div>
+                    </div>
+                </div>
+
+                <!-- デバッグ情報（開発時のみ） -->
+                <div class="mt-3">
+                    <details class="border rounded p-2">
+                        <summary class="text-muted small" style="cursor: pointer;">
+                            <i class="fas fa-bug"></i> デバッグ情報
+                        </summary>
+                        <div class="mt-2 small">
+                            <div>現在時刻: <span id="debug-time">-</span></div>
+                            <div>時刻オフセット: <span id="debug-offset">-</span></div>
+                            <div>予想コード: <span id="debug-code" class="font-monospace">-</span></div>
+                            <button type="button" class="btn btn-sm btn-outline-secondary mt-2" onclick="refreshDebugInfo()">
+                                <i class="fas fa-sync"></i> 更新
+                            </button>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- ヘルプ -->
+                <div class="mt-3">
+                    <details class="border rounded p-2">
+                        <summary class="text-muted small" style="cursor: pointer;">
+                            <i class="fas fa-question-circle"></i> コードが見つからない場合
+                        </summary>
+                        <div class="mt-2 small">
+                            <ul class="mb-0">
+                                <li>認証アプリ（Google Authenticator、Microsoft Authenticator等）を開く</li>
+                                <li>「{{ current_app.config.get('RP_NAME', 'PyAuth') }}」のエントリを探す</li>
+                                <li>表示されている6桁の数字を入力</li>
+                                <li>コードは30秒ごとに更新されます</li>
+                                <li>時刻が大きくずれている場合は同期を確認してください</li>
+                            </ul>
+                        </div>
+                    </details>
+                </div>
+
+                <!-- 戻るリンク -->
+                <div class="text-center mt-3">
+                    <a href="{{ url_for('auth.logout') }}" class="btn btn-sm btn-outline-secondary">
+                        <i class="fas fa-arrow-left"></i> ログアウト
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const tokenInput = document.querySelector('input[name="token"]');
+    const countdownElement = document.getElementById('countdown');
+    const countdownBar = document.getElementById('countdown-bar');
+    
+    // 認証コード入力フィールドの処理
+    if (tokenInput) {
+        // 数字のみ許可
+        tokenInput.addEventListener('input', function(e) {
+            e.target.value = e.target.value.replace(/[^0-9]/g, '');
+            
+            // 6桁になったら自動送信
+            if (e.target.value.length === 6) {
+                // 少し待ってから送信（ユーザーが確認できるように）
+                setTimeout(function() {
+                    e.target.closest('form').submit();
+                }, 300);
+            }
+        });
+
+        // フォーカス時に全選択
+        tokenInput.addEventListener('focus', function(e) {
+            e.target.select();
+        });
+
+        // ペースト時の処理
+        tokenInput.addEventListener('paste', function(e) {
+            e.preventDefault();
+            const paste = (e.clipboardData || window.clipboardData).getData('text');
+            const numbers = paste.replace(/[^0-9]/g, '').substring(0, 6);
+            e.target.value = numbers;
+            
+            if (numbers.length === 6) {
+                setTimeout(function() {
+                    e.target.closest('form').submit();
+                }, 300);
+            }
+        });
+    }
+
+    // TOTPカウントダウンタイマー
+    function updateCountdown() {
+        const now = new Date();
+        const seconds = now.getSeconds();
+        const remaining = 30 - (seconds % 30);
+        const progress = (30 - remaining) / 30 * 100;
+        
+        if (countdownElement) {
+            countdownElement.textContent = remaining.toString().padStart(2, '0');
+        }
+        
+        if (countdownBar) {
+            countdownBar.style.width = progress + '%';
+            
+            // 色を変更
+            if (remaining <= 5) {
+                countdownBar.className = 'progress-bar bg-danger';
+            } else if (remaining <= 10) {
+                countdownBar.className = 'progress-bar bg-warning';
+            } else {
+                countdownBar.className = 'progress-bar bg-success';
+            }
+        }
+        
+        // 新しいコード生成時にアラート
+        if (remaining === 30) {
+            if (tokenInput && tokenInput.value.length === 0) {
+                // 空の場合のみヒント表示
+                tokenInput.placeholder = '新しいコード';
+                setTimeout(() => {
+                    tokenInput.placeholder = '000000';
+                }, 2000);
+            }
+            
+            // デバッグ情報も更新
+            refreshDebugInfo();
+        }
+    }
+
+    // デバッグ情報更新
+    function refreshDebugInfo() {
+        fetch('/api/time-debug')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('debug-time').textContent = new Date(data.sync_time).toLocaleString();
+                document.getElementById('debug-offset').textContent = data.offset.toFixed(3) + ' 秒';
+            })
+            .catch(error => {
+                console.error('デバッグ情報取得エラー:', error);
+            });
+            
+        // 現在のTOTPコードも取得
+        fetch('/api/totp-current')
+            .then(response => response.json())
+            .then(data => {
+                document.getElementById('debug-code').textContent = data.code;
+            })
+            .catch(error => {
+                console.error('TOTPコード取得エラー:', error);
+            });
+    }
+
+    // グローバル関数として登録
+    window.refreshDebugInfo = refreshDebugInfo;
+
+    // 1秒ごとにカウントダウン更新
+    updateCountdown();
+    setInterval(updateCountdown, 1000);
+    
+    // 初回デバッグ情報読み込み
+    refreshDebugInfo();
+
+    // キーボードショートカット
+    document.addEventListener('keydown', function(e) {
+        // Escapeでログアウト
+        if (e.key === 'Escape') {
+            if (confirm('ログアウトしますか？')) {
+                window.location.href = '{{ url_for("auth.logout") }}';
+            }
+        }
+        
+        // 数字キーで入力フィールドにフォーカス
+        if (/^[0-9]$/.test(e.key) && document.activeElement !== tokenInput) {
+            tokenInput.focus();
+            tokenInput.value = e.key;
+        }
+    });
+});
+</script>
+{% endblock %}

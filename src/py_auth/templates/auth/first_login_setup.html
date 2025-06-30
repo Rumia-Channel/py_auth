@@ -1,0 +1,96 @@
+{% extends "base.html" %}
+
+{% block title %}初回ログインセットアップ - PyAuth{% endblock %}
+
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8">
+        <div class="card">
+            <div class="card-body">
+                <div class="text-center mb-4">
+                    <h3><i class="fas fa-user-cog"></i> 初回ログインセットアップ</h3>
+                    <p class="text-muted">セキュリティを強化するため、以下の設定を完了してください</p>
+                </div>
+
+                <!-- セットアップステップ表示 -->
+                <div class="setup-steps mb-4">
+                    <div class="setup-step active">
+                        <div class="setup-step-icon">
+                            <i class="fas fa-key"></i>
+                        </div>
+                        <small>パスワード変更</small>
+                    </div>
+                    <div class="setup-step">
+                        <div class="setup-step-icon">
+                            <i class="fas fa-mobile-alt"></i>
+                        </div>
+                        <small>2FA設定</small>
+                    </div>
+                    <div class="setup-step">
+                        <div class="setup-step-icon">
+                            <i class="fas fa-fingerprint"></i>
+                        </div>
+                        <small>Passkey登録</small>
+                    </div>
+                </div>
+
+                <!-- セットアップ説明 -->
+                <div class="alert alert-info">
+                    <h5><i class="fas fa-info-circle"></i> セットアップが必要な理由</h5>
+                    <ul class="mb-0">
+                        <li><strong>パスワード変更</strong>: 初期パスワードからセキュアなパスワードに変更</li>
+                        <li><strong>2要素認証 (2FA)</strong>: ログインセキュリティを大幅に向上</li>
+                        <li><strong>Passkey登録</strong>: パスワードレス認証で利便性とセキュリティを両立</li>
+                    </ul>
+                </div>
+
+                <!-- セットアップ手順 -->
+                <div class="mb-4">
+                    <h5>セットアップ手順</h5>
+                    <ol class="list-group list-group-numbered">
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="fw-bold">パスワード変更</div>
+                                初期パスワードから新しいセキュアなパスワードに変更します
+                            </div>
+                            <span class="badge bg-primary rounded-pill">必須</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="fw-bold">2要素認証 (TOTP) 設定</div>
+                                Google Authenticator等のアプリを使用してTOTPを設定します
+                            </div>
+                            <span class="badge bg-primary rounded-pill">必須</span>
+                        </li>
+                        <li class="list-group-item d-flex justify-content-between align-items-start">
+                            <div class="ms-2 me-auto">
+                                <div class="fw-bold">Passkey登録</div>
+                                生体認証や物理キーを使用したパスワードレス認証を設定します
+                            </div>
+                            <span class="badge bg-success rounded-pill">推奨</span>
+                        </li>
+                    </ol>
+                </div>
+
+                <!-- セットアップ開始 -->
+                <div class="text-center">
+                    <a href="{{ url_for('auth.change_password') }}" class="btn btn-primary btn-lg">
+                        <i class="fas fa-arrow-right"></i> セットアップを開始
+                    </a>
+                </div>
+
+                <!-- 注意事項 -->
+                <div class="alert alert-warning mt-4">
+                    <h6><i class="fas fa-exclamation-triangle"></i> 重要な注意事項</h6>
+                    <ul class="mb-0 small">
+                        <li>すべてのセットアップが完了するまで、システムにアクセスできません</li>
+                        <li>2FAアプリは必ずバックアップを取得してください</li>
+                        <li>Passkeyは複数登録することを推奨します</li>
+                        <li>設定情報は安全な場所に保管してください</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
