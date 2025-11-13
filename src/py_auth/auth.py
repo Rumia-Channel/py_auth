@@ -7,8 +7,14 @@ import pyotp
 import qrcode
 import io
 import base64
+import logging
 
 auth_bp = Blueprint('auth', __name__)
+
+# Nginx auth_request用のBlueprint
+auth_request_bp = Blueprint('auth_request', __name__)
+
+logger = logging.getLogger(__name__)
 
 def login_required(f):
     @wraps(f)
@@ -67,6 +73,7 @@ def login():
             
             # 2FAが無効な場合は直接ログイン
             session['user_id'] = user.id
+            session['authenticated'] = True  # 認証完了フラグ
             session.pop('temp_user_id', None)
             session.pop('password_verified', None)
             
@@ -92,11 +99,14 @@ def verify_2fa():
         if user.verify_totp(form.token.data):
             # 2FA認証成功
             session['user_id'] = user.id
+            session['authenticated'] = True  # 認証完了フラグ
             session.pop('temp_user_id', None)
             session.pop('password_verified', None)
-            
-            # リダイレクト先を決定（優先順位: next_url > next パラメータ > dashboard）
-            next_page = session.pop('next_url', None) or request.args.get('next')
+
+            # リダイレクト先を決定（優先順位: redirect_after_login > next_url > next パラメータ > dashboard）
+            next_page = (session.pop('redirect_after_login', None) or 
+                        session.pop('next_url', None) or 
+                        request.args.get('next'))
             return redirect(next_page) if next_page else redirect(url_for('auth.dashboard'))
         
         flash('認証コードが間違っています', 'error')
@@ -210,6 +220,7 @@ def complete_setup():
     
     # 正式にログイン
     session['user_id'] = user.id
+    session['authenticated'] = True  # 認証完了フラグ
     
     flash('初期設定が完了しました', 'success')
     return redirect(url_for('auth.dashboard'))
@@ -226,22 +237,55 @@ def logout():
     flash('ログアウトしました', 'info')
     return redirect(url_for('auth.login'))
 
-@auth_bp.route('/auth')
-def auth_check():
-    """認証チェック用エンドポイント（nginx auth_request用）"""
-    if 'user_id' in session:
-        user = User.query.get(session['user_id'])
-        if user and not user.is_first_login:
-            return jsonify({'authenticated': True, 'user': user.to_dict()}), 200
+@auth_request_bp.route('/auth/verify', methods=['GET', 'HEAD'])
+def verify_auth():
+    """
+    Nginx auth_request用の認証確認エンドポイント
     
-    # 認証失敗時：元のURLを保存してログインページにリダイレクト
-    original_url = request.headers.get('X-Original-URI', '/')
+    Returns:
+        200: 認証済み
+        401: 未認証
+    """
+    # 元のリクエスト情報
+    original_uri = request.headers.get('X-Original-URI', 'unknown')
     original_host = request.headers.get('X-Original-Host', request.headers.get('Host', ''))
     
-    # 完全なURLを構築
-    if original_host and original_url:
-        full_original_url = f"https://{original_host}{original_url}"
-        # セッションに保存
-        session['next_url'] = full_original_url
+    # セッションから認証状態を確認
+    user_id = session.get('user_id')
+    authenticated = session.get('authenticated', False)
     
-    return jsonify({'authenticated': False}), 401
+    if user_id and authenticated:
+        # 追加チェック: 初回ログインが完了しているか
+        user = User.query.get(user_id)
+        if user and not user.is_first_login:
+            logger.info(f"認証確認成功: user_id={user_id}, uri={original_uri}")
+            return '', 200
+    
+    logger.info(f"認証確認失敗: uri={original_uri}")
+    return '', 401
+
+@auth_request_bp.route('/auth/login-redirect', methods=['GET'])
+def login_redirect():
+    """
+    未認証時のログインページへのリダイレクト
+    元のURLを保存して、ログイン後に戻る
+    """
+    # 元のURLをクエリパラメータから取得
+    original_url = request.args.get('url', '/')
+    
+    # セッションに保存
+    session['redirect_after_login'] = original_url
+    
+    logger.info(f"ログインリダイレクト: 元のURL={original_url}")
+    
+    # ログインページにリダイレクト
+    return redirect(url_for('auth.login'))
+
+# 既存のauth_checkは削除または置き換え
+@auth_bp.route('/auth')
+def auth_check():
+    """
+    既存のauth_checkエンドポイント（後方互換性のため残す）
+    /auth/verify を使用することを推奨
+    """
+    return redirect(url_for('auth_request.verify_auth'))

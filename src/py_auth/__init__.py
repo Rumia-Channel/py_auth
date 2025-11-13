@@ -119,11 +119,12 @@ def create_app():
         }
     
     # ブループリントの登録
-    from .auth import auth_bp
+    from .auth import auth_bp, auth_request_bp
     from .admin import admin_bp
     from .api import api_bp
     
     app.register_blueprint(auth_bp)
+    app.register_blueprint(auth_request_bp)  # Nginx auth_request用
     app.register_blueprint(admin_bp, url_prefix='/admin')
     app.register_blueprint(api_bp, url_prefix='/api')
     

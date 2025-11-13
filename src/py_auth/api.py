@@ -27,51 +27,14 @@ def webauthn_register_begin():
             logger.error(f"Passkey登録: ユーザーが見つかりません (user_id={user_id})")
             return jsonify({'error': 'ユーザーが見つかりません'}), 404
         
-        # バイナリデータをBase64でエンコードし、WebAuthn標準のプロパティ名に変換
-        def encode_binary_and_normalize(obj):
-            if isinstance(obj, bytes):
-                import base64
-                return base64.urlsafe_b64encode(obj).decode('ascii').rstrip('=')
-            elif hasattr(obj, '__dict__'):
-                # オブジェクトの属性を辞書として処理
-                result = {}
-                for key, value in obj.__dict__.items():
-                    if not key.startswith('_'):
-                        # プロパティ名をWebAuthn標準に変換
-                        normalized_key = normalize_property_name(key)
-                        result[normalized_key] = encode_binary_and_normalize(value)
-                return result
-            elif isinstance(obj, dict):
-                normalized_dict = {}
-                for k, v in obj.items():
-                    normalized_key = normalize_property_name(k)
-                    normalized_dict[normalized_key] = encode_binary_and_normalize(v)
-                return normalized_dict
-            elif isinstance(obj, list):
-                return [encode_binary_and_normalize(item) for item in obj]
-            elif isinstance(obj, tuple):
-                return tuple(encode_binary_and_normalize(item) for item in obj)
-            return obj
-        
-        def normalize_property_name(key):
-            """プロパティ名をWebAuthn標準に変換"""
-            property_mapping = {
-                'pub_key_cred_params': 'pubKeyCredParams',
-                'exclude_credentials': 'excludeCredentials',
-                'authenticator_selection': 'authenticatorSelection',
-                'attestation_formats': 'attestationFormats',
-                'display_name': 'displayName'  # user.display_name -> user.displayName
-            }
-            return property_mapping.get(key, key)
-        
-        encoded_data = encode_binary_and_normalize(registration_data)
-        
-        # タイムアウトを60秒に設定
-        if isinstance(encoded_data, dict):
-            encoded_data['timeout'] = 60000
+        # CredentialCreationOptionsをdict化してJSON化
+        # fido2ライブラリが自動的にWebAuthn標準形式に変換
+        options_dict = dict(registration_data)
         
         logger.info("Passkey登録データ生成成功")
-        return jsonify(encoded_data)
+        logger.info(f"Options keys: {list(options_dict.keys())}")
+        
+        return jsonify(options_dict)
         
     except Exception as e:
         logger.error(f"Passkey登録開始エラー: {e}")

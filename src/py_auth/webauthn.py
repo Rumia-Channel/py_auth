@@ -1,6 +1,6 @@
 from flask import current_app, session, request
 from fido2.server import Fido2Server
-from fido2.webauthn import PublicKeyCredentialRpEntity, UserVerificationRequirement
+from fido2.webauthn import PublicKeyCredentialRpEntity, UserVerificationRequirement, ResidentKeyRequirement, RegistrationResponse
 from fido2 import cbor
 from .models import User, Passkey, db
 import secrets
@@ -49,6 +49,7 @@ def start_registration(user_id):
         },
         credentials=existing_credentials,
         user_verification=UserVerificationRequirement.PREFERRED,
+        resident_key_requirement=ResidentKeyRequirement.PREFERRED,
     )
     
     # セッションにstateを保存
@@ -75,47 +76,28 @@ def complete_registration(credential_data):
         import logging
         logger = logging.getLogger(__name__)
         
-        # 詳細デバッグログ（セキュリティ上後で削除）
         logger.info(f"webauthn.py - 受信データ構造: {list(credential_data.keys())}")
-        logger.info(f"webauthn.py - stateタイプ: {type(state)}")
-        logger.info(f"webauthn.py - credential_dataタイプ: {type(credential_data)}")
         
-        # Base64URLデコード処理を追加
-        def decode_credential_data(data):
-            import base64
-            
-            logger.info(f"デコード前のdata: {data}")
-            
-            # Base64URLパディングを修正
-            def add_padding(base64url):
-                return base64url + '=' * (4 - len(base64url) % 4)
-            
-            # rawIdをデコード
-            if 'rawId' in data and isinstance(data['rawId'], str):
-                original_rawId = data['rawId']
-                data['rawId'] = base64.urlsafe_b64decode(add_padding(data['rawId']))
-                logger.info(f"rawId変換: {original_rawId[:20]}... -> bytes[{len(data['rawId'])}]")
-            
-            # responseの各フィールドをデコード
-            if 'response' in data:
-                response = data['response']
-                if 'attestationObject' in response and isinstance(response['attestationObject'], str):
-                    original_ao = response['attestationObject']
-                    response['attestationObject'] = base64.urlsafe_b64decode(add_padding(response['attestationObject']))
-                    logger.info(f"attestationObject変換: {original_ao[:20]}... -> bytes[{len(response['attestationObject'])}]")
-                if 'clientDataJSON' in response and isinstance(response['clientDataJSON'], str):
-                    original_cdj = response['clientDataJSON']
-                    response['clientDataJSON'] = base64.urlsafe_b64decode(add_padding(response['clientDataJSON']))
-                    logger.info(f"clientDataJSON変換: {original_cdj[:20]}... -> bytes[{len(response['clientDataJSON'])}]")
-            
-            logger.info(f"デコード後のdata構造: {list(data.keys())}")
-            return data
+        # WebAuthn JSON形式からfido2が期待する形式に変換
+        # transports, authenticatorAttachmentなどの追加フィールドを除去
+        cleaned_data = {
+            'id': credential_data.get('id'),
+            'rawId': credential_data.get('rawId'),
+            'response': credential_data.get('response'),
+            'type': credential_data.get('type', 'public-key')
+        }
         
-        # クライアントデータをデコード
-        decoded_data = decode_credential_data(credential_data.copy())
+        logger.info(f"クリーニング後のデータ: {list(cleaned_data.keys())}")
         
+        # RegistrationResponseオブジェクトに変換
+        registration_response = RegistrationResponse.from_dict(cleaned_data)
+        
+        logger.info("RegistrationResponse変換成功")
         logger.info("server.register_complete呼び出し直前")
-        auth_data = server.register_complete(state, decoded_data)
+        
+        # register_completeを呼び出し
+        auth_data = server.register_complete(state, registration_response)
+        
         logger.info("server.register_complete呼び出し成功")
         
         # Passkeyをデータベースに保存
@@ -136,6 +118,7 @@ def complete_registration(credential_data):
         return True, 'Passkeyが登録されました'
         
     except Exception as e:
+        logger.error(f"登録エラー詳細: {e}", exc_info=True)
         return False, f'登録に失敗しました: {str(e)}'
 
 def start_authentication():

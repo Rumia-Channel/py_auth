@@ -77,7 +77,8 @@ function processRegistrationResponse(responseData) {
     console.log('Registration response:', responseData);
     
     // public_keyプロパティからオプションを取得
-    const options = responseData.public_key || responseData;
+    // サーバーは {publicKey: {...}} 形式で返すので publicKey を取り出す
+    const options = responseData.publicKey || responseData;
     console.log('Actual options:', options);
     
     // userオブジェクトの詳細確認
@@ -134,7 +135,7 @@ function processRegistrationResponse(responseData) {
         delete options.attestationFormats;
     }
     if (options.attestation === null || options.attestation === undefined) {
-        delete options.attestation;
+        options.attestation = 'none'; // デフォルト値を設定
     }
     if (options.extensions === null || options.extensions === undefined) {
         delete options.extensions;
@@ -147,8 +148,8 @@ function processRegistrationResponse(responseData) {
 function processAuthenticationResponse(responseData) {
     console.log('Authentication response:', responseData);
     
-    // public_keyプロパティからオプションを取得
-    const options = responseData.public_key || responseData;
+    // publicKeyプロパティからオプションを取得
+    const options = responseData.publicKey || responseData;
     console.log('Auth options:', options);
     
     // Base64デコード
@@ -190,7 +191,7 @@ async function performPasskeyRegistration(csrfToken) {
         const credential = await navigator.credentials.create({ publicKey: options });
         console.log('navigator.credentials.create成功, credential:', credential);
         
-        // レスポンス準備
+        // レスポンス準備（WebAuthn JSON形式）
         const credentialResponse = {
             id: credential.id,
             rawId: arrayBufferToBase64url(credential.rawId),
@@ -200,6 +201,16 @@ async function performPasskeyRegistration(csrfToken) {
             },
             type: credential.type
         };
+        
+        // transportsが利用可能な場合は追加（パスワードマネージャー対応）
+        if (credential.response.getTransports) {
+            credentialResponse.transports = credential.response.getTransports();
+        }
+        
+        // authenticatorAttachmentが利用可能な場合は追加
+        if (credential.authenticatorAttachment) {
+            credentialResponse.authenticatorAttachment = credential.authenticatorAttachment;
+        }
         
         // 登録完了
         console.log('送信するcredentialResponse:', credentialResponse);
